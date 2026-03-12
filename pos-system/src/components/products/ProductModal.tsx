@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { productSchema } from '@/lib/validations'
+import { productSchema, ProductFormValues } from '@/lib/validations'
 import { Product } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -49,7 +49,7 @@ export function ProductModal({
   const [isLoading, setIsLoading] = useState(false)
   const supabase = createClient()
 
-  const form = useForm({
+  const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: '',
@@ -95,7 +95,7 @@ export function ProductModal({
     }
   }, [product, form])
 
-  const onSubmit = async (values: any) => {
+  const onSubmit = async (values: ProductFormValues) => {
     setIsLoading(true)
     try {
       if (product) {
@@ -132,7 +132,7 @@ export function ProductModal({
               <FormField
                 control={form.control}
                 name="name"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>Product Name</FormLabel>
                     <FormControl>
