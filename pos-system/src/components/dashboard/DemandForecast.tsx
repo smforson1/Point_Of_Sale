@@ -1,5 +1,7 @@
 'use client'
 
+// Demand forecasting logic for inventory management
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, Info, TrendingDown } from 'lucide-react'
