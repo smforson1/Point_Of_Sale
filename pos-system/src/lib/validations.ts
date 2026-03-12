@@ -9,9 +9,9 @@ export type LoginFormValues = z.infer<typeof loginSchema>
 
 export const productSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  description: z.string().optional(),
-  sku: z.string().optional(),
-  barcode: z.string().optional(),
+  description: z.string().optional().or(z.literal('')),
+  sku: z.string().optional().or(z.literal('')),
+  barcode: z.string().optional().or(z.literal('')),
   category: z.string().min(1, 'Category is required'),
   price: z.coerce.number().min(0, 'Price must be 0 or greater'),
   cost_price: z.coerce.number().min(0, 'Cost price must be 0 or greater').optional(),
