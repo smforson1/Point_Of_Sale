@@ -15,7 +15,7 @@ export function CartItem({ item }: CartItemProps) {
   const { updateQuantity, removeItem } = useCartStore()
 
   return (
-    <div className="flex items-center gap-3 p-3 border-b hover:bg-gray-50/50 transition-colors">
+    <div className="flex items-center gap-3 p-3 border-b hover:bg-muted/30 transition-colors">
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-medium line-clamp-1">{item.name}</h4>
         <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
@@ -49,7 +49,7 @@ export function CartItem({ item }: CartItemProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+        className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-500/10"
         onClick={() => removeItem(item.id)}
       >
         <Trash2 className="h-4 w-4" />

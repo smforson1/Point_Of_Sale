@@ -94,7 +94,7 @@ export function CartPanel() {
 
   return (
     <Card className="flex flex-col h-full shadow-md border-none rounded-none md:rounded-lg">
-      <CardHeader className="p-4 flex flex-row items-center justify-between border-b bg-gray-50/50">
+      <CardHeader className="p-4 flex flex-row items-center justify-between border-b bg-muted/30">
         <div className="flex items-center gap-2">
           <ShoppingCart className="h-5 w-5 text-primary" />
           <CardTitle className="text-lg">Shopping Cart</CardTitle>
@@ -109,7 +109,7 @@ export function CartPanel() {
           >
             <ShoppingBag className="h-4 w-4" />
             {heldCarts.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white">
+              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-background">
                 {heldCarts.length}
               </span>
             )}
@@ -117,7 +117,7 @@ export function CartPanel() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-red-500 hover:bg-red-50"
+            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
             onClick={clearCart}
             disabled={items.length === 0}
           >
@@ -146,7 +146,7 @@ export function CartPanel() {
         )}
       </CardContent>
 
-      <CardFooter className="flex flex-col p-4 bg-gray-50/50 border-t gap-4">
+      <CardFooter className="flex flex-col p-4 bg-muted/30 border-t gap-4">
         <div className="w-full space-y-2 text-sm">
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Subtotal</span>
@@ -197,12 +197,12 @@ export function CartPanel() {
             </div>
             <div className="flex items-center gap-2">
               {coupon ? (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 pr-1">
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 gap-1 pr-1">
                   {coupon.code}
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-4 w-4 hover:bg-green-100 rounded-full"
+                    className="h-4 w-4 hover:bg-green-500/20 rounded-full"
                     onClick={() => setCoupon(null)}
                   >
                     <Trash2 className="h-2 w-2" />
