@@ -130,6 +130,10 @@ export interface AuditLog {
   old_data: any;
   new_data: any;
   created_at: string;
+  profiles?: {
+    full_name: string | null;
+    email: string;
+  };
 }
 
 export interface Notification {

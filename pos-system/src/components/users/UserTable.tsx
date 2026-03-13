@@ -8,11 +8,9 @@ import {
   Search,
   Pencil,
   Trash2,
+  Shield,
   Mail,
-  Phone,
-  MapPin,
-  Trophy,
-  Filter,
+  User as UserIcon,
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
@@ -35,77 +33,75 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import { CustomerModal } from './CustomerModal'
+import { UserModal } from './UserModal'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Users } from 'lucide-react'
-import type { Customer } from '@/types'
+import type { Profile } from '@/types'
 
-export function CustomerTable() {
-  const [customers, setCustomers] = useState<Customer[]>([])
+export function UserTable() {
+  const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   
   const supabase = createClient()
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
       const { data, error } = await supabase
-        .from('customers')
+        .from('profiles')
         .select('*')
-        .order('full_name', { ascending: true })
+        .order('role', { ascending: true })
 
       if (error) throw error
-      setCustomers(data || [])
+      setUsers(data || [])
     } catch (error: any) {
-      toast.error(error.message || 'Failed to fetch customers')
+      toast.error(error.message || 'Failed to fetch users')
     } finally {
       setLoading(false)
     }
   }, [supabase])
 
   useEffect(() => {
-    fetchCustomers()
-  }, [fetchCustomers])
+    fetchUsers()
+  }, [fetchUsers])
 
   const handleDelete = async () => {
-    if (!selectedCustomer) return
+    if (!selectedUser) return
 
     try {
       const { error } = await supabase
-        .from('customers')
+        .from('profiles')
         .delete()
-        .eq('id', selectedCustomer.id)
+        .eq('id', selectedUser.id)
 
       if (error) throw error
-      toast.success('Customer deleted successfully')
-      fetchCustomers()
+      toast.success('User deleted successfully')
+      fetchUsers()
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete customer')
+      toast.error(error.message || 'Note: Active users in Auth cannot be deleted from here.')
     } finally {
       setIsDeleteDialogOpen(false)
-      setSelectedCustomer(null)
+      setSelectedUser(null)
     }
   }
 
-  const filteredCustomers = customers.filter((c) =>
-    c.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.phone?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users.filter((u) =>
+    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const getTierBadge = (tier: string) => {
-    switch (tier) {
-      case 'GOLD':
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-0">Gold</Badge>
-      case 'SILVER':
-        return <Badge className="bg-slate-300 hover:bg-slate-400 text-slate-800 border-0">Silver</Badge>
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'ADMIN':
+        return <Badge className="bg-purple-500 hover:bg-purple-600 border-0">Admin</Badge>
+      case 'MANAGER':
+        return <Badge className="bg-blue-500 hover:bg-blue-600 border-0">Manager</Badge>
       default:
-        return <Badge className="bg-orange-600 hover:bg-orange-700 text-white border-0">Bronze</Badge>
+        return <Badge variant="secondary">Cashier</Badge>
     }
   }
 
@@ -115,18 +111,18 @@ export function CustomerTable() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search customers..."
+            placeholder="Search staff members..."
             className="pl-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <Button onClick={() => {
-          setSelectedCustomer(null)
+          setSelectedUser(null)
           setIsModalOpen(true)
         }}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Customer
+          Add Staff
         </Button>
       </div>
 
@@ -134,70 +130,56 @@ export function CustomerTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Customer</TableHead>
-              <TableHead>Contact Details</TableHead>
-              <TableHead>Loyalty</TableHead>
-              <TableHead>Address</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Created At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
+              Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><div className="h-4 w-32 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell><div className="h-4 w-40 animate-pulse bg-muted rounded" /></TableCell>
+                  <TableCell><div className="h-4 w-20 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell><div className="h-4 w-24 animate-pulse bg-muted rounded" /></TableCell>
-                  <TableCell><div className="h-4 w-48 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell className="text-right"><div className="h-4 w-8 animate-pulse bg-muted rounded ml-auto" /></TableCell>
                 </TableRow>
               ))
-            ) : filteredCustomers.length === 0 ? (
+            ) : filteredUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5}>
                   <EmptyState
-                    title="No customers found"
-                    description={searchQuery ? "Try searching for something else." : "Add your first customer to get started."}
-                    icon={Users}
+                    title="No users found"
+                    description="Invite your team members to manage the store."
+                    icon={UserIcon}
                   />
                 </TableCell>
               </TableRow>
             ) : (
-              filteredCustomers.map((customer) => (
-                <TableRow key={customer.id} className="group hover:bg-muted/50 transition-colors">
+              filteredUsers.map((user) => (
+                <TableRow key={user.id} className="group hover:bg-muted/50 transition-colors">
                   <TableCell>
-                    <div className="font-medium text-foreground">{customer.full_name}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      {customer.email && (
-                        <div className="flex items-center text-sm text-muted-foreground text-xs">
-                          <Mail className="mr-2 h-3 w-3" />
-                          {customer.email}
-                        </div>
-                      )}
-                      {customer.phone && (
-                        <div className="flex items-center text-sm text-muted-foreground text-xs">
-                          <Phone className="mr-2 h-3 w-3" />
-                          {customer.phone}
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      {getTierBadge(customer.tier)}
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <Trophy className="mr-1 h-3 w-3 text-orange-400" />
-                        {customer.loyalty_points} Points
+                    <div className="flex items-center">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                        <UserIcon className="h-4 w-4 text-primary" />
                       </div>
+                      <div className="font-medium">{user.full_name || 'System User'}</div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-start text-sm text-muted-foreground max-w-[200px] truncate">
-                      <MapPin className="mr-2 h-3 w-3 mt-1 flex-shrink-0 text-primary/60" />
-                      {customer.address || 'N/A'}
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Mail className="mr-2 h-3 w-3" />
+                      {user.email}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {getRoleBadge(user.role)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -210,22 +192,22 @@ export function CustomerTable() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => {
-                          setSelectedCustomer(customer)
+                          setSelectedUser(user)
                           setIsModalOpen(true)
                         }}>
                           <Pencil className="mr-2 h-4 w-4" />
-                          Edit Details
+                          Edit Permissions
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive focus:bg-destructive/10"
                           onClick={() => {
-                            setSelectedCustomer(customer)
+                            setSelectedUser(user)
                             setIsDeleteDialogOpen(true)
                           }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Customer
+                          Revoke Access
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -237,19 +219,21 @@ export function CustomerTable() {
         </Table>
       </div>
 
-      <CustomerModal
-        customer={selectedCustomer}
+      <UserModal
+        user={selectedUser}
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        onSuccess={fetchCustomers}
+        onSuccess={fetchUsers}
       />
 
       <ConfirmDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleDelete}
-        title="Delete Customer"
-        description={`Are you sure you want to delete ${selectedCustomer?.full_name}? This will also remove their loyalty history.`}
+        title="Revoke User Access"
+        description={`Are you sure you want to remove ${selectedUser?.full_name || selectedUser?.email}? This will prevent them from logging in.`}
+        confirmText="Revoke Access"
+        variant="destructive"
       />
     </div>
   )

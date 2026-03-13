@@ -9,8 +9,8 @@ import {
 import { Button } from '@/components/ui/button'
 
 interface ConfirmDialogProps {
-  isOpen: boolean
-  onClose: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onConfirm: () => void
   title: string
   description: string
@@ -21,8 +21,8 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({
-  isOpen,
-  onClose,
+  open,
+  onOpenChange,
   onConfirm,
   title,
   description,
@@ -32,14 +32,14 @@ export function ConfirmDialog({
   isLoading = false,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             {cancelText}
           </Button>
           <Button variant={variant} onClick={onConfirm} disabled={isLoading}>

@@ -194,8 +194,8 @@ export function ProductTable() {
       />
 
       <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleDelete}
         title="Delete Product"
         description={`Are you sure you want to delete "${productToDelete?.name}"? This action cannot be undone.`}

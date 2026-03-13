@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
-import { customerSchema, type CustomerFormValues } from '@/lib/validations'
+import { supplierSchema, type SupplierFormValues } from '@/lib/validations'
 import {
   Dialog,
   DialogContent,
@@ -26,28 +26,29 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import type { Customer } from '@/types'
+import type { Supplier } from '@/types'
 
-interface CustomerModalProps {
-  customer: Customer | null
+interface SupplierModalProps {
+  supplier: Supplier | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
 }
 
-export function CustomerModal({
-  customer,
+export function SupplierModal({
+  supplier,
   open,
   onOpenChange,
   onSuccess,
-}: CustomerModalProps) {
+}: SupplierModalProps) {
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
-  const form = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerSchema) as any,
+  const form = useForm<SupplierFormValues>({
+    resolver: zodResolver(supplierSchema) as any,
     defaultValues: {
-      full_name: '',
+      name: '',
+      contact_person: '',
       email: '',
       phone: '',
       address: '',
@@ -55,39 +56,41 @@ export function CustomerModal({
   })
 
   useEffect(() => {
-    if (customer) {
+    if (supplier) {
       form.reset({
-        full_name: customer.full_name,
-        email: customer.email || '',
-        phone: customer.phone || '',
-        address: customer.address || '',
+        name: supplier.name,
+        contact_person: supplier.contact_person || '',
+        email: supplier.email || '',
+        phone: supplier.phone || '',
+        address: supplier.address || '',
       })
     } else {
       form.reset({
-        full_name: '',
+        name: '',
+        contact_person: '',
         email: '',
         phone: '',
         address: '',
       })
     }
-  }, [customer, form])
+  }, [supplier, form])
 
-  const onSubmit = async (values: CustomerFormValues) => {
+  const onSubmit = async (values: SupplierFormValues) => {
     setLoading(true)
     try {
-      if (customer) {
+      if (supplier) {
         const { error } = await supabase
-          .from('customers')
+          .from('suppliers')
           .update(values)
-          .eq('id', customer.id)
+          .eq('id', supplier.id)
 
         if (error) throw error
-        toast.success('Customer updated successfully')
+        toast.success('Supplier updated successfully')
       } else {
-        const { error } = await supabase.from('customers').insert([values])
+        const { error } = await supabase.from('suppliers').insert([values])
 
         if (error) throw error
-        toast.success('Customer added successfully')
+        toast.success('Supplier added successfully')
       }
 
       onSuccess()
@@ -103,9 +106,9 @@ export function CustomerModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{customer ? 'Edit Customer' : 'Add Customer'}</DialogTitle>
+          <DialogTitle>{supplier ? 'Edit Supplier' : 'Add Supplier'}</DialogTitle>
           <DialogDescription>
-            Enter the details of the customer here.
+            Enter the details of the supplier here.
           </DialogDescription>
         </DialogHeader>
 
@@ -113,10 +116,24 @@ export function CustomerModal({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="full_name"
+              name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Supplier Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Acme Corp" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="contact_person"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact Person</FormLabel>
                   <FormControl>
                     <Input placeholder="John Doe" {...field} />
                   </FormControl>
@@ -182,7 +199,7 @@ export function CustomerModal({
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Customer'}
+                {loading ? 'Saving...' : 'Save Supplier'}
               </Button>
             </DialogFooter>
           </form>
