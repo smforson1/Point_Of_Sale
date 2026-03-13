@@ -57,7 +57,7 @@ export function BarcodeDisplay({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 p-4 border rounded-lg bg-white">
+    <div className="flex flex-col items-center gap-4 p-4 border border-border rounded-lg bg-card text-card-foreground">
       <svg ref={barcodeRef}></svg>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={handlePrint}>

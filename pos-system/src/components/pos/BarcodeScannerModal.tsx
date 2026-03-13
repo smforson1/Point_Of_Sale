@@ -33,7 +33,7 @@ export function BarcodeScannerModal({
               <Camera className="h-5 w-5 text-primary" />
               Scan Barcode
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/10 h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-black/50 h-8 w-8">
               <X className="h-4 w-4" />
             </Button>
           </DialogTitle>

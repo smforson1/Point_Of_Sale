@@ -110,7 +110,7 @@ export function ProductTable() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

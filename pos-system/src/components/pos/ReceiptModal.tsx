@@ -127,7 +127,7 @@ export function ReceiptModal({ isOpen, onClose, saleId }: ReceiptModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden bg-white">
+      <DialogContent className="max-w-sm p-0 overflow-hidden">
         {loading ? (
           <div className="h-96 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

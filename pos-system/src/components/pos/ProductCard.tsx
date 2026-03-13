@@ -36,7 +36,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
       )}
       onClick={handleClick}
     >
-      <div className="relative aspect-square bg-gray-100 flex items-center justify-center">
+      <div className="relative aspect-square bg-muted flex items-center justify-center">
         {product.image_url ? (
           <Image
             src={product.image_url}
@@ -45,7 +45,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             className="object-cover"
           />
         ) : (
-          <span className="text-gray-400 text-xs font-medium uppercase tracking-wider">No Image</span>
+          <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider">No Image</span>
         )}
         <div className="absolute top-2 right-2 flex flex-col gap-1">
           {isOutOfStock && (

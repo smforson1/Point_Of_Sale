@@ -58,7 +58,7 @@ export function HeldOrdersModal({ isOpen, onClose }: HeldOrdersModalProps) {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-lg">{cart.label}</span>
-                    <span className="text-xs text-muted-foreground bg-white px-2 py-0.5 rounded border">
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
                       {cart.items.length} items
                     </span>
                   </div>

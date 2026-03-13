@@ -182,7 +182,7 @@ export function ExpenseManagementModal({ isOpen, onClose }: ExpenseManagementMod
                 <p className="text-center py-8 text-xs text-muted-foreground">No expenses logged yet.</p>
               ) : (
                 expenses.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg bg-white group">
+                  <div key={expense.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-card group">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded">

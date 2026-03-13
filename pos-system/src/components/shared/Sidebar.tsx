@@ -96,7 +96,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col border-r bg-white transition-all duration-300 relative',
+        'hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 relative',
         isCollapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -111,8 +111,8 @@ export function Sidebar() {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
                     isActive
-                      ? 'bg-primary text-white'
-                      : 'text-gray-600 hover:bg-gray-100',
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted',
                     isCollapsed && 'justify-center px-0'
                   )}
                 >
