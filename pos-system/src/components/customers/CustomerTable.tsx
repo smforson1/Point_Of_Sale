@@ -153,7 +153,7 @@ export function CustomerTable() {
                   <TableCell><div className="h-4 w-32 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell><div className="h-4 w-40 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell><div className="h-4 w-24 animate-pulse bg-muted rounded" /></TableCell>
-                  <TableCell><div className="h-4 w-24 animate-pulse bg-muted rounded" /></TableCell> {/* Added for Balance */}
+                  <TableCell><div className="h-4 w-24 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell><div className="h-4 w-48 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell className="text-right"><div className="h-4 w-8 animate-pulse bg-muted rounded ml-auto" /></TableCell>
                 </TableRow>
