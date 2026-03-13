@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { useShiftStore } from '@/store/shiftStore'
 import { ShiftManagementModal } from '../pos/ShiftManagementModal'
+import { ThemeToggle } from './ThemeToggle'
 
 export function Navbar() {
   const { profile, signOut } = useAuthStore()
@@ -66,7 +67,7 @@ export function Navbar() {
   }
 
   return (
-    <nav className="h-16 border-b bg-white flex items-center justify-between px-4 sticky top-0 z-30">
+    <nav className="h-16 border-b border-border bg-background flex items-center justify-between px-4 sticky top-0 z-30">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" className="md:hidden">
           <Menu className="h-5 w-5" />
@@ -86,6 +87,8 @@ export function Navbar() {
           <div className={`h-2 w-2 rounded-full ${currentShift ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
           <span className="text-xs font-bold">{currentShift ? 'Shift Active' : 'No Active Shift'}</span>
         </Button>
+
+        <ThemeToggle />
 
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />

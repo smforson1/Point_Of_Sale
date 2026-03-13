@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
-import { Settings as SettingsIcon, Store, Mail, Phone, MapPin, Percent, Coins } from 'lucide-react'
+import { Settings as SettingsIcon, Store, Mail, Phone, MapPin, Percent, Coins, Database, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { settingsSchema, type SettingsFormValues } from '@/lib/validations'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -89,6 +89,37 @@ export default function SettingsPage() {
       toast.error(error.message || 'Failed to update settings')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleBackup = async () => {
+    try {
+      const { data: products } = await supabase.from('products').select('*')
+      const { data: sales } = await supabase.from('sales').select('*, sale_items(*)')
+      const { data: customers } = await supabase.from('customers').select('*')
+      const { data: settings } = await supabase.from('settings').select('*')
+
+      const backupData = {
+        products: products || [],
+        sales: sales || [],
+        customers: customers || [],
+        settings: settings || [],
+        exported_at: new Date().toISOString(),
+        version: '1.0'
+      }
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `pos-backup-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success('Backup created successfully')
+    } catch (err) {
+      toast.error('Failed to create backup')
     }
   }
 
@@ -261,6 +292,30 @@ export default function SettingsPage() {
               </Card>
             </div>
           </div>
+
+          <Card className="bg-orange-50/20 border-orange-200/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-700">
+                <Database className="h-5 w-5" />
+                System Maintenance
+              </CardTitle>
+              <CardDescription>
+                Export your database records for local storage and safety.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Backup Database</p>
+                  <p className="text-xs text-muted-foreground">Download all products, sales, and customer data as a JSON file.</p>
+                </div>
+                <Button variant="outline" type="button" onClick={handleBackup} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Download Backup
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" type="button" onClick={() => form.reset()}>
