@@ -20,6 +20,7 @@ import { toast } from 'react-hot-toast'
 import { useShiftStore } from '@/store/shiftStore'
 import { ShiftManagementModal } from '../pos/ShiftManagementModal'
 import { ThemeToggle } from './ThemeToggle'
+import { AIInventoryAssistant } from '../pos/AIInventoryAssistant'
 
 export function Navbar() {
   const { profile, signOut } = useAuthStore()
@@ -93,6 +94,7 @@ export function Navbar() {
         </Button>
 
         <ThemeToggle />
+        <AIInventoryAssistant />
 
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
