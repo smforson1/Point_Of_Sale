@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useCartStore } from '@/store/cartStore'
 import { CartItem } from './CartItem'
 import { CustomerSelector } from './CustomerSelector'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/utils/formatCurrency'
@@ -23,12 +24,16 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 
 export function CartPanel() {
-  const { items, clearCart, discount, discountType, setDiscount, calculateTotals, customerId } = useCartStore()
+  const { items, clearCart, discount, discountType, setDiscount, coupon, setCoupon, calculateTotals, customerId } = useCartStore()
   const { holdCurrentCart, heldCarts } = useHoldStore()
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false)
   const [showDiscountInput, setShowDiscountInput] = useState(false)
   const [tempDiscount, setTempDiscount] = useState(discount.toString())
+  const [couponCode, setCouponCode] = useState('')
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false)
+
+  const supabase = createClient()
 
   const handleHold = () => {
     if (items.length === 0) return
@@ -44,6 +49,47 @@ export function CartPanel() {
     const val = parseFloat(tempDiscount) || 0
     setDiscount(val, discountType)
     setShowDiscountInput(false)
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return
+    setIsApplyingCoupon(true)
+    try {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', couponCode.toUpperCase())
+        .eq('is_active', true)
+        .single()
+
+      if (error || !data) {
+        toast.error('Invalid or expired coupon')
+        return
+      }
+
+      if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+        toast.error('Coupon has expired')
+        return
+      }
+
+      if (data.usage_limit && data.used_count >= data.usage_limit) {
+        toast.error('Coupon usage limit reached')
+        return
+      }
+
+      if (subtotal < data.min_purchase) {
+        toast.error(`Minimum purchase of ${formatCurrency(data.min_purchase)} required`)
+        return
+      }
+
+      setCoupon(data)
+      setCouponCode('')
+      toast.success(`Coupon "${data.code}" applied!`)
+    } catch (err) {
+      toast.error('Error applying coupon')
+    } finally {
+      setIsApplyingCoupon(false)
+    }
   }
 
   return (
@@ -141,6 +187,45 @@ export function CartPanel() {
                 >
                   -{formatCurrency(discountAmount)}
                 </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center group">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Promo Code</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {coupon ? (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 pr-1">
+                  {coupon.code}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-4 w-4 hover:bg-green-100 rounded-full"
+                    onClick={() => setCoupon(null)}
+                  >
+                    <Trash2 className="h-2 w-2" />
+                  </Button>
+                </Badge>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Input
+                    placeholder="Enter code"
+                    className="h-7 w-24 text-[10px] uppercase"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                  />
+                  <Button 
+                    size="sm" 
+                    className="h-7 px-2 text-[10px]" 
+                    onClick={handleApplyCoupon}
+                    disabled={isApplyingCoupon || !couponCode}
+                  >
+                    Apply
+                  </Button>
+                </div>
               )}
             </div>
           </div>

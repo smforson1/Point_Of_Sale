@@ -13,8 +13,11 @@ import {
   MapPin,
   Trophy,
   Filter,
+  Wallet
 } from 'lucide-react'
+import { CustomerBalanceModal } from './CustomerBalanceModal'
 import { toast } from 'react-hot-toast'
+import { formatCurrency } from '@/utils/formatCurrency'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +51,7 @@ export function CustomerTable() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false)
   
   const supabase = createClient()
 
@@ -137,6 +141,7 @@ export function CustomerTable() {
               <TableHead>Customer</TableHead>
               <TableHead>Contact Details</TableHead>
               <TableHead>Loyalty</TableHead>
+              <TableHead>Balance</TableHead>
               <TableHead>Address</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -148,13 +153,14 @@ export function CustomerTable() {
                   <TableCell><div className="h-4 w-32 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell><div className="h-4 w-40 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell><div className="h-4 w-24 animate-pulse bg-muted rounded" /></TableCell>
+                  <TableCell><div className="h-4 w-24 animate-pulse bg-muted rounded" /></TableCell> {/* Added for Balance */}
                   <TableCell><div className="h-4 w-48 animate-pulse bg-muted rounded" /></TableCell>
                   <TableCell className="text-right"><div className="h-4 w-8 animate-pulse bg-muted rounded ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : filteredCustomers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <EmptyState
                     title="No customers found"
                     description={searchQuery ? "Try searching for something else." : "Add your first customer to get started."}
@@ -194,6 +200,12 @@ export function CustomerTable() {
                     </div>
                   </TableCell>
                   <TableCell>
+                    <div className="flex items-center text-sm font-bold text-primary">
+                      <Wallet className="mr-1 h-3 w-3 text-green-500" />
+                      {formatCurrency(customer.store_balance || 0)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-start text-sm text-muted-foreground max-w-[200px] truncate">
                       <MapPin className="mr-2 h-3 w-3 mt-1 flex-shrink-0 text-primary/60" />
                       {customer.address || 'N/A'}
@@ -215,6 +227,13 @@ export function CustomerTable() {
                         }}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedCustomer(customer)
+                          setIsBalanceModalOpen(true)
+                        }}>
+                          <Wallet className="mr-2 h-4 w-4" />
+                          Top Up Balance
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -241,6 +260,13 @@ export function CustomerTable() {
         customer={selectedCustomer}
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
+        onSuccess={fetchCustomers}
+      />
+
+      <CustomerBalanceModal
+        customer={selectedCustomer}
+        isOpen={isBalanceModalOpen}
+        onClose={() => setIsBalanceModalOpen(false)}
         onSuccess={fetchCustomers}
       />
 

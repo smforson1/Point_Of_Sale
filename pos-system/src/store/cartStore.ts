@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { CartItem, Product } from '@/types'
+import { CartItem, Product, Coupon } from '@/types'
 
 interface CartState {
   items: CartItem[]
   customerId: string | null
   discount: number
   discountType: 'FIXED' | 'PERCENTAGE'
+  coupon: Coupon | null
   addItem: (product: Product, variantId?: string | null) => void
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
@@ -14,6 +15,7 @@ interface CartState {
   setItems: (items: CartItem[]) => void
   setCustomerId: (customerId: string | null) => void
   setDiscount: (discount: number, type: 'FIXED' | 'PERCENTAGE') => void
+  setCoupon: (coupon: Coupon | null) => void
   calculateTotals: () => {
     subtotal: number
     discountAmount: number
@@ -29,6 +31,7 @@ export const useCartStore = create<CartState>()(
       customerId: null,
       discount: 0,
       discountType: 'FIXED',
+      coupon: null,
 
   addItem: (product: Product, variantId?: string | null) => {
     const items = get().items
@@ -85,7 +88,7 @@ export const useCartStore = create<CartState>()(
         })
       },
 
-      clearCart: () => set({ items: [], customerId: null, discount: 0, discountType: 'FIXED' }),
+      clearCart: () => set({ items: [], customerId: null, discount: 0, discountType: 'FIXED', coupon: null }),
 
       setItems: (items) => set({ items }),
 
@@ -93,25 +96,41 @@ export const useCartStore = create<CartState>()(
 
       setDiscount: (discount, discountType) => set({ discount, discountType }),
 
+      setCoupon: (coupon) => set({ coupon }),
+
       calculateTotals: () => {
-        const { items, discount, discountType } = get()
+        const { items, discount, discountType, coupon } = get()
         const subtotal = items.reduce((acc, item) => acc + item.price * item.cartQuantity, 0)
         
-        let discountAmount = 0
+        let manualDiscount = 0
         if (discountType === 'PERCENTAGE') {
-          discountAmount = (subtotal * discount) / 100
+          manualDiscount = (subtotal * discount) / 100
         } else {
-          discountAmount = discount
+          manualDiscount = discount
         }
 
-        const taxableAmount = subtotal - discountAmount
+        // Apply Coupon logic
+        let couponDiscount = 0
+        if (coupon && subtotal >= coupon.min_purchase) {
+          if (coupon.discount_type === 'PERCENTAGE') {
+            couponDiscount = (subtotal * coupon.value) / 100
+            if (coupon.max_discount) {
+              couponDiscount = Math.min(couponDiscount, coupon.max_discount)
+            }
+          } else {
+            couponDiscount = coupon.value
+          }
+        }
+
+        const totalDiscount = manualDiscount + couponDiscount
+        const taxableAmount = Math.max(0, subtotal - totalDiscount)
         const taxRate = 0.15 // 15% VAT from settings (default)
         const taxAmount = taxableAmount * taxRate
         const total = taxableAmount + taxAmount
 
         return {
           subtotal,
-          discountAmount,
+          discountAmount: totalDiscount,
           taxAmount,
           total,
         }

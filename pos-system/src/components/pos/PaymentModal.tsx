@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Banknote, CreditCard, Smartphone, Check, Loader2 } from 'lucide-react'
+import { Banknote, CreditCard, Smartphone, Check, Loader2, DollarSign } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { ReceiptModal } from './ReceiptModal'
 import {
@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select'
 
 interface PaymentEntry {
-  method: 'CASH' | 'MOBILE_MONEY' | 'CARD'
+  method: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'STORE_BALANCE'
   amount: number
   details: any
 }
@@ -40,7 +40,7 @@ interface PaymentModalProps {
 }
 
 export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
-  const { items, customerId, discount, discountType, clearCart, calculateTotals } = useCartStore()
+  const { items, customerId, discount, discountType, coupon, clearCart, calculateTotals } = useCartStore()
   const { profile } = useAuthStore()
   const [currentMethod, setCurrentMethod] = useState('CASH')
   const [isLoading, setIsLoading] = useState(false)
@@ -60,7 +60,6 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
   const remainingBalance = Math.max(0, total - paidAmount)
   const change = Math.max(0, (currentMethod === 'CASH' ? (parseFloat(amountInput) || 0) : 0) - remainingBalance)
 
-  // Auto-fill amount input with remaining balance when tab changes
   const handleTabChange = (val: string) => {
     setCurrentMethod(val)
     setAmountInput(remainingBalance.toString())
@@ -78,7 +77,6 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
       return
     }
 
-    // For cash, the actual payment amount is what was due, unless they paid less
     const actualAppliedAmount = Math.min(amount, remainingBalance)
 
     let details = {}
@@ -88,6 +86,8 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
     } else if (currentMethod === 'CARD') {
       if (!cardRef) { toast.error('Enter reference'); return }
       details = { reference: cardRef }
+    } else if (currentMethod === 'STORE_BALANCE') {
+      details = { customer_id: customerId }
     } else {
       details = { amount_tendered: amount, change: amount > remainingBalance ? amount - remainingBalance : 0 }
     }
@@ -112,7 +112,6 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
   const handleCheckout = async () => {
     if (!profile) return
     
-    // Check for active shift
     const activeShift = useShiftStore.getState().currentShift
     if (!activeShift) {
       toast.error('You must open a shift before making a sale!')
@@ -120,9 +119,8 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
     }
     
     if (paidAmount < total) {
-      // If they haven't added any payments but the current input is valid, auto-add it
       if (payments.length === 0 && parseFloat(amountInput) >= total) {
-        // Handled below by finalPayments logic
+        // Handled auto-payment logic here
       } else {
         toast.error('Balance not fully paid')
         return
@@ -180,54 +178,68 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
           details: p.details,
         })
         if (paymentError) throw paymentError
+
+        // Handle Store Balance Specific Logic
+        if (p.method === 'STORE_BALANCE' && customerId) {
+          const { data: cust } = await supabase.from('customers').select('store_balance').eq('id', customerId).single()
+          const currentBal = cust?.store_balance || 0
+          if (currentBal < p.amount) throw new Error('Insufficient store balance')
+          
+          await supabase.from('customers').update({ store_balance: currentBal - p.amount }).eq('id', customerId)
+          await supabase.from('balance_transactions').insert({
+            customer_id: customerId,
+            amount: p.amount,
+            type: 'WITHDRAWAL',
+            reference_id: sale.id
+          })
+        }
       }
 
-      // 4. Update Product Stock & Notifications
+      // 4. Update Product Stock
       for (const item of items) {
         if (item.variantId && item.variants) {
-          // Update specific variant
           const updatedVariants = item.variants.map(v => {
             if (v.id === item.variantId) {
-              const newVQty = v.quantity - item.cartQuantity
-              return { ...v, quantity: newVQty }
+              return { ...v, quantity: v.quantity - item.cartQuantity }
             }
             return v
           })
-          
           const targetVariant = item.variants.find(v => v.id === item.variantId)
           const newVQty = (targetVariant?.quantity || 0) - item.cartQuantity
-
           await supabase.from('products').update({ variants: updatedVariants }).eq('id', item.id)
-
+          
           if (newVQty <= item.low_stock_threshold) {
-            await supabase.from('notifications').insert({
-              title: 'Low Stock Alert',
-              message: `${item.name} (${targetVariant?.name}) is low on stock (${newVQty} remaining)`,
-              type: newVQty <= 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK',
-            })
+             await supabase.from('notifications').insert({
+               title: 'Low Stock Alert',
+               message: `${item.name} (${targetVariant?.name}) is low (${newVQty} remaining)`,
+               type: 'LOW_STOCK'
+             })
           }
         } else {
-          // Update main product
           const newQuantity = item.quantity - item.cartQuantity
           await supabase.from('products').update({ quantity: newQuantity }).eq('id', item.id)
-
           if (newQuantity <= item.low_stock_threshold) {
             await supabase.from('notifications').insert({
               title: 'Low Stock Alert',
-              message: `${item.name} is low on stock (${newQuantity} remaining)`,
-              type: newQuantity <= 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK',
+              message: `${item.name} is low (${newQuantity} remaining)`,
+              type: 'LOW_STOCK'
             })
           }
         }
       }
 
-      // 5. Update Loyalty
+      // 5. Update Loyalty & Coupon
       if (customerId) {
         const pointsEarned = Math.floor(total / 10)
         const { data: cust } = await supabase.from('customers').select('loyalty_points').eq('id', customerId).single()
         const newPoints = (cust?.loyalty_points || 0) + pointsEarned
         const tier = newPoints >= 1000 ? 'GOLD' : (newPoints >= 500 ? 'SILVER' : 'BRONZE')
         await supabase.from('customers').update({ loyalty_points: newPoints, tier }).eq('id', customerId)
+      }
+
+      if (coupon) {
+        const { data: c } = await supabase.from('coupons').select('used_count').eq('id', coupon.id).single()
+        await supabase.from('coupons').update({ used_count: (c?.used_count || 0) + 1 }).eq('id', coupon.id)
       }
 
       // 6. Audit Log
@@ -244,7 +256,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
       toast.success('Sale completed successfully')
     } catch (error: any) {
       console.error(error)
-      toast.error('Failed to complete sale: ' + error.message)
+      toast.error('Checkout failed: ' + error.message)
     } finally {
       setIsLoading(false)
     }
@@ -275,9 +287,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Finalize Payment</DialogTitle>
-          <DialogDescription>
-            You can split payments across multiple methods
-          </DialogDescription>
+          <DialogDescription>Split payments or use promo codes</DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 py-4 border-b">
@@ -302,6 +312,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                   {p.method === 'CASH' && <Banknote className="h-3 w-3" />}
                   {p.method === 'MOBILE_MONEY' && <Smartphone className="h-3 w-3" />}
                   {p.method === 'CARD' && <CreditCard className="h-3 w-3" />}
+                  {p.method === 'STORE_BALANCE' && <DollarSign className="h-3 w-3" />}
                   <span className="text-sm font-medium">{p.method.replace('_', ' ')}</span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -318,10 +329,11 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
         {remainingBalance > 0 && (
           <div className="mt-2 p-4 bg-primary/5 rounded-xl border border-primary/10">
             <Tabs value={currentMethod} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="grid grid-cols-3 w-full h-10 mb-4">
+              <TabsList className={`grid w-full h-10 mb-4 ${customerId ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 <TabsTrigger value="CASH">Cash</TabsTrigger>
                 <TabsTrigger value="MOBILE_MONEY">MoMo</TabsTrigger>
                 <TabsTrigger value="CARD">Card</TabsTrigger>
+                {customerId && <TabsTrigger value="STORE_BALANCE">Balance</TabsTrigger>}
               </TabsList>
 
               <div className="space-y-4">
@@ -372,6 +384,12 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                     value={cardRef}
                     onChange={(e) => setCardRef(e.target.value)}
                   />
+                </TabsContent>
+
+                <TabsContent value="STORE_BALANCE" className="mt-0">
+                   <div className="bg-yellow-50 p-2 rounded border border-yellow-200 text-[10px] text-yellow-800">
+                     Using customer's prepaid balance. Ensure they have enough funds.
+                   </div>
                 </TabsContent>
 
                 {currentMethod === 'CASH' && change > 0 && (

@@ -95,8 +95,34 @@ export interface Customer {
   address: string | null;
   loyalty_points: number;
   tier: 'BRONZE' | 'SILVER' | 'GOLD';
+  store_balance: number;
+  birthday: string | null;
+  last_visit: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discount_type: 'FIXED' | 'PERCENTAGE';
+  value: number;
+  min_purchase: number;
+  max_discount: number | null;
+  expiry_date: string | null;
+  usage_limit: number | null;
+  used_count: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface BalanceTransaction {
+  id: string;
+  customer_id: string;
+  amount: number;
+  type: 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND';
+  reference_id: string | null;
+  created_at: string;
 }
 
 export interface Sale {
