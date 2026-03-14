@@ -9,10 +9,15 @@ import { PaymentMethodChart } from '@/components/dashboard/PaymentMethodChart'
 import { RecentSalesTable } from '@/components/dashboard/RecentSalesTable'
 import { LowStockAlerts } from '@/components/dashboard/LowStockAlerts'
 import { DemandForecast } from '@/components/dashboard/DemandForecast'
-import { DollarSign, Package, ShoppingBag, Users, Loader2 } from 'lucide-react'
+import { DollarSign, Package, ShoppingBag, Users, Loader2, ShieldCheck, UserCog } from 'lucide-react'
 import { formatCurrency } from '@/utils/formatCurrency'
+import { useAuthStore } from '@/store/authStore'
+import { Badge } from '@/components/ui/badge'
 
 export default function DashboardPage() {
+  const { profile, role } = useAuthStore()
+  const isAdmin = role === 'ADMIN'
+  const isManager = role === 'MANAGER'
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     revenue: 0,
@@ -112,9 +117,27 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-        <p className="text-muted-foreground">Welcome back! Here's what's happening today.</p>
+      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
+          <p className="text-muted-foreground">
+            Welcome back, <span className="font-semibold text-foreground">{profile?.full_name || 'there'}</span>! Here's what's happening today.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Badge className="gap-1.5 px-3 py-1 text-xs bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/30 hover:bg-violet-500/20">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Admin Access
+            </Badge>
+          )}
+          {isManager && (
+            <Badge className="gap-1.5 px-3 py-1 text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 hover:bg-blue-500/20">
+              <UserCog className="h-3.5 w-3.5" />
+              Manager Access
+            </Badge>
+          )}
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -157,7 +180,18 @@ export default function DashboardPage() {
         <LowStockAlerts products={stockAlerts} />
       </div>
 
-      <DemandForecast products={[]} />
+      {/* Admin-only: Demand Forecast & AI Insights */}
+      {isAdmin && <DemandForecast products={[]} />}
+
+      {/* Manager & Admin: Additional reporting note */}
+      {(isAdmin || isManager) && (
+        <div className="rounded-xl border border-dashed border-border p-6 text-center space-y-1">
+          <p className="text-sm font-semibold">📊 Advanced Analytics</p>
+          <p className="text-xs text-muted-foreground">
+            Head to the <strong>Reports</strong> section for full sales breakdowns, product performance, and payment analysis.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
