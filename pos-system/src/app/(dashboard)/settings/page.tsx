@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast'
 import { Settings as SettingsIcon, Store, Mail, Phone, MapPin, Percent, Coins, Database, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { settingsSchema, type SettingsFormValues } from '@/lib/validations'
+import { useSettingsStore } from '@/store/settingsStore'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Form,
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const supabase = createClient()
+  const setSettings = useSettingsStore((state) => state.setSettings)
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema) as any,
@@ -84,6 +86,13 @@ export default function SettingsPage() {
       }
 
       if (error) throw error
+
+      // Update global store
+      const { data: updatedSettings } = await supabase.from('settings').select('*').single()
+      if (updatedSettings) {
+        setSettings(updatedSettings)
+      }
+
       toast.success('Settings updated successfully')
     } catch (error: any) {
       toast.error(error.message || 'Failed to update settings')

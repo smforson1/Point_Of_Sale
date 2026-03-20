@@ -23,9 +23,11 @@ import { ThemeToggle } from './ThemeToggle'
 import { AIInventoryAssistant } from '../pos/AIInventoryAssistant'
 import { ConnectivityStatus } from './ConnectivityStatus'
 import { NotificationDropdown } from './NotificationDropdown'
+import { useSettings } from '@/hooks/useSettings'
 
 export function Navbar() {
   const { profile, signOut } = useAuthStore()
+  const { settings } = useSettings()
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false)
   const { currentShift } = useShiftStore()
   
@@ -45,7 +47,11 @@ export function Navbar() {
           <Menu className="h-5 w-5" />
         </Button>
         <span className="font-bold text-xl hidden md:block">
-          POS <span className="text-primary">Master</span>
+          {settings?.store_name || (
+            <>
+              POS <span className="text-primary">Master</span>
+            </>
+          )}
         </span>
       </div>
 
