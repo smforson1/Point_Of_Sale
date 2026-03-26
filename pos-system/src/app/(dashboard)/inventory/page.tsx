@@ -2,13 +2,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, Truck, AlertTriangle, ShoppingCart } from 'lucide-react'
+import { Package, Truck, AlertTriangle, ShoppingCart, FileUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProductStockTable } from '@/components/inventory/ProductStockTable'
 import { SupplierTable } from '@/components/inventory/SupplierTable'
 import { PurchaseOrderTable } from '@/components/inventory/PurchaseOrderTable'
+import { Button } from '@/components/ui/button'
+import { BulkInventoryUploadModal } from '@/components/inventory/BulkInventoryUploadModal'
 
 export default function InventoryPage() {
   const [stats, setStats] = useState({
@@ -16,20 +18,22 @@ export default function InventoryPage() {
     lowStock: 0,
     outOfStock: 0,
   })
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const supabase = createClient()
 
-  useEffect(() => {
-    async function fetchStats() {
-      const { data: products } = await supabase.from('products').select('quantity, low_stock_threshold')
-      
-      if (products) {
-        setStats({
-          totalItems: products.length,
-          lowStock: products.filter(p => p.quantity > 0 && p.quantity <= p.low_stock_threshold).length,
-          outOfStock: products.filter(p => p.quantity === 0).length,
-        })
-      }
+  const fetchStats = async () => {
+    const { data: products } = await supabase.from('products').select('quantity, low_stock_threshold')
+    
+    if (products) {
+      setStats({
+        totalItems: products.length,
+        lowStock: products.filter(p => p.quantity > 0 && p.quantity <= p.low_stock_threshold).length,
+        outOfStock: products.filter(p => p.quantity === 0).length,
+      })
     }
+  }
+
+  useEffect(() => {
     fetchStats()
   }, [supabase])
 
@@ -42,6 +46,10 @@ export default function InventoryPage() {
             Monitor stock levels and manage your suppliers.
           </p>
         </div>
+        <Button onClick={() => setIsUploadModalOpen(true)} className="gap-2">
+          <FileUp className="h-4 w-4" />
+          Bulk Upload
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -99,6 +107,12 @@ export default function InventoryPage() {
           <PurchaseOrderTable />
         </TabsContent>
       </Tabs>
+
+      <BulkInventoryUploadModal 
+        isOpen={isUploadModalOpen} 
+        onClose={() => setIsUploadModalOpen(false)} 
+        onSuccess={fetchStats}
+      />
     </div>
   )
 }
