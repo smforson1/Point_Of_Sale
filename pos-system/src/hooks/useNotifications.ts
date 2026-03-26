@@ -26,37 +26,36 @@ export function useNotifications() {
     setLoading(false)
   }
 
-  const markAsRead = async (id: string) => {
+  const deleteNotification = async (id: string) => {
     // Optimistic update
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+    setNotifications(prev => prev.filter(n => n.id !== id))
     setUnreadCount(prev => Math.max(0, prev - 1))
 
     const { error } = await supabase
       .from('notifications')
-      .update({ is_read: true })
+      .delete()
       .eq('id', id)
       
     if (error) {
-      toast.error('Failed to mark notification as read')
+      toast.error('Failed to delete notification')
       fetchNotifications() // Revert on error
     }
   }
 
-  const markAllAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id)
-    if (unreadIds.length === 0) return
+  const clearAll = async () => {
+    if (notifications.length === 0) return
 
     // Optimistic
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    setNotifications([])
     setUnreadCount(0)
 
     const { error } = await supabase
       .from('notifications')
-      .update({ is_read: true })
-      .in('id', unreadIds)
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
 
     if (error) {
-      toast.error('Failed to mark all as read')
+      toast.error('Failed to clear notifications')
       fetchNotifications() 
     }
   }
@@ -94,8 +93,8 @@ export function useNotifications() {
     notifications,
     unreadCount,
     loading,
-    markAsRead,
-    markAllAsRead,
+    deleteNotification,
+    clearAll,
     refresh: fetchNotifications,
   }
 }

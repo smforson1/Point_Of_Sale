@@ -16,7 +16,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 
 export function NotificationDropdown() {
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications()
+  const { notifications, unreadCount, loading, deleteNotification, clearAll } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
 
   const getIcon = (type: NotificationType) => {
@@ -45,14 +45,14 @@ export function NotificationDropdown() {
       <PopoverContent className="w-80 p-0 shadow-lg" align="end" sideOffset={8}>
         <div className="flex items-center justify-between p-3 px-4 border-b bg-muted/30">
           <h4 className="font-semibold text-sm">Notifications</h4>
-          {unreadCount > 0 && (
+          {notifications.length > 0 && (
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={markAllAsRead} 
+              onClick={clearAll} 
               className="h-auto py-1 px-2 text-xs text-primary hover:bg-primary/10"
             >
-              Mark all as read
+              Clear all
             </Button>
           )}
         </div>
@@ -68,7 +68,7 @@ export function NotificationDropdown() {
               {notifications.map((notification) => (
                 <div 
                   key={notification.id} 
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => deleteNotification(notification.id)}
                   className={cn(
                     "p-4 border-b last:border-0 hover:bg-muted/50 transition-colors flex gap-3 items-start cursor-pointer w-full text-left",
                     !notification.is_read ? 'bg-primary/5' : ''
