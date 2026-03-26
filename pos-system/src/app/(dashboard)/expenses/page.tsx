@@ -1,31 +1,31 @@
 'use client'
 
-import { SupplierTable } from '@/components/suppliers/SupplierTable'
+import { ExpenseTable } from '@/components/expenses/ExpenseTable'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users } from 'lucide-react'
+import { Wallet } from 'lucide-react'
 
-export default function SuppliersPage() {
+export default function ExpensesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Suppliers</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
         <p className="text-muted-foreground">
-          Manage your vendors and contact information for purchase orders.
+          Track your store costs and overheads to monitor your business health.
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <CardTitle>Supplier Directory</CardTitle>
+            <Wallet className="h-5 w-5 text-primary" />
+            <CardTitle>Management</CardTitle>
           </div>
           <CardDescription>
-            A list of all registered suppliers in your system.
+            A record of all your business expenditures.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SupplierTable />
+          <ExpenseTable />
         </CardContent>
       </Card>
     </div>

@@ -41,15 +41,6 @@ export interface Shift {
   created_at: string;
 }
 
-export interface Expense {
-  id: string;
-  category: string;
-  amount: number;
-  description: string | null;
-  user_id: string | null;
-  date: string;
-  created_at: string;
-}
 
 export interface ProductVariant {
   id: string;
@@ -191,19 +182,59 @@ export interface PurchaseOrder {
   updated_at: string;
 }
 
-export interface AuditLog {
+export interface PurchaseOrderItem {
+  id: string;
+  purchase_order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_cost: number;
+  subtotal: number;
+  created_at: string;
+  products?: Product;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
+
+export interface Expense {
+  id: string;
+  category_id: string | null;
+  amount: number;
+  description: string;
+  expense_date: string;
+  vendor: string | null;
+  payment_method: string;
+  user_id: string;
+  created_at: string;
+  expense_categories?: ExpenseCategory;
+}
+
+export interface InventoryAudit {
   id: string;
   user_id: string;
-  action: string;
-  entity_type: string;
-  entity_id: string;
-  old_data: any;
-  new_data: any;
-  created_at: string;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  notes: string | null;
+  started_at: string;
+  completed_at: string | null;
   profiles?: {
     full_name: string | null;
-    email: string;
   };
+}
+
+export interface InventoryAuditItem {
+  id: string;
+  audit_id: string;
+  product_id: string;
+  expected_quantity: number;
+  actual_quantity: number;
+  discrepancy: number;
+  notes: string | null;
+  created_at: string;
+  products?: Product;
 }
 
 export interface Notification {

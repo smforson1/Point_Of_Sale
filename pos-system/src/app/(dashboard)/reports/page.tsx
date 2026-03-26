@@ -67,17 +67,19 @@ export default function ReportsPage() {
       const { data: expenses } = await supabase
         .from('expenses')
         .select('amount')
-        .gte('date', startDate.toISOString().split('T')[0])
+        .gte('expense_date', startDate.toISOString().split('T')[0])
       
       const totalRev = sales?.reduce((sum, s) => sum + Number(s.total_amount), 0) || 0
       const totalExp = expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
       
-      // Calculate simplistic profit (Total Rev - Total Exp - Estimated COGS 60%)
-      const estimatedProfit = totalRev * 0.4 - totalExp
+      // Calculate simplistic profit (Total Rev - Total Exp - Estimated COGS 60% of Revenue if cost_price is missing)
+      // For now, let's keep it simple: Revenue - Expenses. 
+      // If we had COGS data, we'd subtract that too.
+      const netProfit = totalRev - totalExp
       
       setStats({
         monthlyRevenue: totalRev,
-        netProfit: estimatedProfit,
+        netProfit: netProfit,
         avgOrderValue: sales?.length ? totalRev / sales.length : 0
       })
       setTotalExpenses(totalExp)

@@ -10,7 +10,7 @@ import { RecentSalesTable } from '@/components/dashboard/RecentSalesTable'
 import { LowStockAlerts } from '@/components/dashboard/LowStockAlerts'
 import { DemandForecast } from '@/components/dashboard/DemandForecast'
 import { AIAnalyticsDashboard } from '@/components/dashboard/AIAnalyticsDashboard'
-import { DollarSign, Package, ShoppingBag, Users, Loader2, ShieldCheck, UserCog } from 'lucide-react'
+import { DollarSign, Package, ShoppingBag, Users, Loader2, ShieldCheck, UserCog, TrendingUp } from 'lucide-react'
 import { formatCurrency } from '@/utils/formatCurrency'
 import { useAuthStore } from '@/store/authStore'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     revenue: 0,
+    netProfit: 0,
     salesCount: 0,
     customerCount: 0,
     productCount: 0,
@@ -40,13 +41,16 @@ export default function DashboardPage() {
     
     // 1. Fetch Basic Stats
     const { data: sales } = await supabase.from('sales').select('total_amount')
+    const { data: expenses } = await supabase.from('expenses').select('amount')
     const { count: productsCount } = await supabase.from('products').select('*', { count: 'exact', head: true })
     const { count: customersCount } = await supabase.from('customers').select('*', { count: 'exact', head: true })
 
     const totalRevenue = sales?.reduce((acc, s) => acc + Number(s.total_amount), 0) || 0
+    const totalExpenses = expenses?.reduce((acc, e) => acc + Number(e.amount), 0) || 0
 
     setStats({
       revenue: totalRevenue,
+      netProfit: totalRevenue - totalExpenses,
       salesCount: sales?.length || 0,
       customerCount: customersCount || 0,
       productCount: productsCount || 0,
@@ -141,12 +145,18 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard
           title="Total Revenue"
           value={formatCurrency(stats.revenue)}
           icon={DollarSign}
           trend={{ value: 12.5, label: 'from last month', isPositive: true }}
+        />
+        <StatsCard
+          title="Net Profit"
+          value={formatCurrency(stats.netProfit)}
+          icon={TrendingUp}
+          className={stats.netProfit < 0 ? 'text-red-600' : 'text-green-600'}
         />
         <StatsCard
           title="Total Sales"

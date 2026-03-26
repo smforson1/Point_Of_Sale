@@ -48,6 +48,12 @@ const navItems = [
     roles: ['ADMIN', 'MANAGER'],
   },
   {
+    title: 'Inventory Audit',
+    href: '/inventory/audit',
+    icon: LayoutDashboard, // Will use another icon if History/Truck is taken
+    roles: ['ADMIN', 'MANAGER'],
+  },
+  {
     title: 'Customers',
     href: '/customers',
     icon: Users,
@@ -57,6 +63,18 @@ const navItems = [
     title: 'Suppliers',
     href: '/suppliers',
     icon: Truck,
+    roles: ['ADMIN', 'MANAGER'],
+  },
+  {
+    title: 'Purchase Orders',
+    href: '/purchase-orders',
+    icon: History,
+    roles: ['ADMIN', 'MANAGER'],
+  },
+  {
+    title: 'Expenses',
+    href: '/expenses',
+    icon: BarChart3, // Using BarChart or Wallet if available
     roles: ['ADMIN', 'MANAGER'],
   },
   {
