@@ -58,7 +58,8 @@ export function ProductStockTable() {
 
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(searchQuery.toLowerCase())
+    p.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.barcode?.includes(searchQuery)
   )
 
   const getStockBadge = (quantity: number, threshold: number) => {

@@ -101,17 +101,40 @@ export function ProductGrid() {
   }
 
   const handleBarcodeScan = (barcode: string) => {
-    const product = products.find(p => p.barcode === barcode || p.sku === barcode)
+    const cleanBarcode = barcode.trim()
+    const product = products.find(p => 
+      p.barcode === cleanBarcode || 
+      p.sku === cleanBarcode ||
+      // Handle cases where SKU might be stored with different casing
+      p.sku?.toLowerCase() === cleanBarcode.toLowerCase()
+    )
+    
     if (product) {
       if (product.variants && product.variants.length > 0) {
         setSelectedProduct(product)
         setIsVariantModalOpen(true)
       } else {
         addItem(product)
-        toast.success(`Added ${product.name}`)
+        toast.success(`${product.name} added to cart`)
       }
+      setSearchTerm('') // Clear search after successful scan
     } else {
-      toast.error('Product not found for code: ' + barcode)
+      toast.error('Product not found for code: ' + cleanBarcode)
+    }
+  }
+
+  // Auto-add if exact match is found in search input
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchTerm.trim().length > 0) {
+      const match = products.find(p => 
+        p.barcode === searchTerm.trim() || 
+        p.sku?.toLowerCase() === searchTerm.trim().toLowerCase()
+      )
+      
+      if (match) {
+        e.preventDefault()
+        handleBarcodeScan(searchTerm.trim())
+      }
     }
   }
 
@@ -131,6 +154,7 @@ export function ProductGrid() {
             className="pl-9 pr-12"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
           />
           <Button
             variant="ghost"

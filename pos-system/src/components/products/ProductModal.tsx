@@ -31,11 +31,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'react-hot-toast'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Trash2, Scan } from 'lucide-react'
 import { useFieldArray } from 'react-hook-form'
 import { Separator } from '@/components/ui/separator'
 import { Image as ImageIcon, Upload } from 'lucide-react'
 import { ProductImage } from '@/components/shared/ProductImage'
+import { BarcodeScannerModal } from '../pos/BarcodeScannerModal'
 
 interface ProductModalProps {
   isOpen: boolean
@@ -52,6 +53,7 @@ export function ProductModal({
 }: ProductModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
   const supabase = createClient()
 
   const form = useForm<ProductFormValues>({
@@ -281,7 +283,19 @@ export function ProductModal({
                   <FormItem>
                     <FormLabel>Barcode</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 123456789" {...field} />
+                      <div className="relative">
+                        <Input placeholder="e.g. 123456789" {...field} />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full w-10 text-primary hover:bg-primary/10 rounded-l-none border-l"
+                          onClick={() => setIsScannerOpen(true)}
+                          title="Scan Barcode with Camera"
+                        >
+                          <Scan className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -519,6 +533,16 @@ export function ProductModal({
             </DialogFooter>
           </form>
         </Form>
+
+        <BarcodeScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onScan={(barcode) => {
+            form.setValue('barcode', barcode, { shouldValidate: true })
+            toast.success('Barcode scanned: ' + barcode)
+            setIsScannerOpen(false)
+          }}
+        />
       </DialogContent>
     </Dialog>
   )
