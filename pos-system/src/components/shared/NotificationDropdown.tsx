@@ -11,85 +11,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { Notification, NotificationType } from '@/types'
+import { useNotifications } from '@/hooks/useNotifications'
 import { formatDistanceToNow } from 'date-fns'
-import { toast } from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 
 export function NotificationDropdown() {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const supabase = createClient()
-
-  const fetchNotifications = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(30)
-      
-    if (data) {
-      setNotifications(data)
-      setUnreadCount(data.filter(n => !n.is_read).length)
-    }
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    fetchNotifications()
-
-    const channel = supabase
-      .channel('notifications_changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        (payload) => {
-          setNotifications((prev) => [payload.new as Notification, ...prev])
-          setUnreadCount((prev) => prev + 1)
-          toast('New notification', { icon: '🔔' })
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase])
-
-  const markAllAsRead = async () => {
-    if (unreadCount === 0) return
-    
-    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id)
-    
-    // Optimistic update
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
-    setUnreadCount(0)
-
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .in('id', unreadIds)
-
-    if (error) {
-       console.error("Failed to mark read:", error)
-       toast.error("Failed to mark notifications as read.")
-    }
-  }
-
-  const markAsRead = async (id: string, is_read: boolean) => {
-    if (is_read) return
-    
-    // Optimistic
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
-    setUnreadCount(prev => Math.max(0, prev - 1))
-
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id)
-  }
 
   const getIcon = (type: NotificationType) => {
     switch (type) {
@@ -140,7 +68,7 @@ export function NotificationDropdown() {
               {notifications.map((notification) => (
                 <div 
                   key={notification.id} 
-                  onClick={() => markAsRead(notification.id, notification.is_read)}
+                  onClick={() => markAsRead(notification.id)}
                   className={cn(
                     "p-4 border-b last:border-0 hover:bg-muted/50 transition-colors flex gap-3 items-start cursor-pointer w-full text-left",
                     !notification.is_read ? 'bg-primary/5' : ''

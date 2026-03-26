@@ -9,6 +9,7 @@ import { Settings as SettingsIcon, Store, Mail, Phone, MapPin, Percent, Coins, D
 import { createClient } from '@/lib/supabase/client'
 import { settingsSchema, type SettingsFormValues } from '@/lib/validations'
 import { useSettingsStore } from '@/store/settingsStore'
+import { useAuthStore } from '@/store/authStore'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Form,
@@ -24,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
 export default function SettingsPage() {
+  const { role } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const supabase = createClient()
@@ -326,11 +328,16 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" type="button" onClick={() => form.reset()}>
+          <div className="flex justify-end gap-3 flex-col sm:flex-row items-center">
+            {role === 'CASHIER' && (
+              <p className="text-xs text-destructive font-medium italic mr-auto">
+                * Only Managers and Admins can modify store settings.
+              </p>
+            )}
+            <Button variant="outline" type="button" onClick={() => form.reset()} disabled={loading || role === 'CASHIER'}>
               Reset Changes
             </Button>
-            <Button type="submit" size="lg" disabled={loading}>
+            <Button type="submit" size="lg" disabled={loading || role === 'CASHIER'}>
               {loading ? 'Saving...' : 'Save All Settings'}
             </Button>
           </div>

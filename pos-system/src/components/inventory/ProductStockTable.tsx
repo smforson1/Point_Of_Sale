@@ -26,7 +26,10 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ProductImage } from '@/components/shared/ProductImage'
 import type { Product } from '@/types'
 
+import { useAuthStore } from '@/store/authStore'
+
 export function ProductStockTable() {
+  const { role } = useAuthStore()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -140,17 +143,19 @@ export function ProductStockTable() {
                     {getStockBadge(product.quantity, product.low_stock_threshold)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProduct(product)
-                        setIsModalOpen(true)
-                      }}
-                    >
-                      <History className="mr-2 h-4 w-4" />
-                      Adjust Stock
-                    </Button>
+                    {role !== 'CASHIER' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProduct(product)
+                          setIsModalOpen(true)
+                        }}
+                      >
+                        <History className="mr-2 h-4 w-4" />
+                        Adjust Stock
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

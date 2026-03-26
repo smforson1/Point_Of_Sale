@@ -42,7 +42,10 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'react-hot-toast'
 
+import { useAuthStore } from '@/store/authStore'
+
 export function ProductTable() {
+  const { role } = useAuthStore()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -105,9 +108,11 @@ export function ProductTable() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button onClick={() => { setSelectedProduct(null); setIsModalOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Product
-        </Button>
+        {role !== 'CASHIER' && (
+          <Button onClick={() => { setSelectedProduct(null); setIsModalOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> Add Product
+          </Button>
+        )}
       </div>
 
       <div className="rounded-md border border-border bg-card">
@@ -170,15 +175,19 @@ export function ProductTable() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }}>
-                          <Pencil className="mr-2 h-4 w-4 text-blue-500" /> Edit
-                        </DropdownMenuItem>
+                        {role !== 'CASHIER' && (
+                          <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }}>
+                            <Pencil className="mr-2 h-4 w-4 text-blue-500" /> Edit
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => { setProductForBarcode(product); setIsBarcodeOpen(true); }}>
                           <BarcodeIcon className="mr-2 h-4 w-4 text-purple-500" /> Barcode
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onClick={() => { setProductToDelete(product); setIsDeleteDialogOpen(true); }}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
+                        {role !== 'CASHIER' && (
+                          <DropdownMenuItem className="text-red-600" onClick={() => { setProductToDelete(product); setIsDeleteDialogOpen(true); }}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
