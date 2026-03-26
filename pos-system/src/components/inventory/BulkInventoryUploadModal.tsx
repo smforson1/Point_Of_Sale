@@ -32,6 +32,7 @@ export function BulkInventoryUploadModal({
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<{ success: number; failed: number } | null>(null)
+  const [uploadMode, setUploadMode] = useState<'restock' | 'overwrite'>('restock')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
@@ -116,10 +117,11 @@ export function BulkInventoryUploadModal({
         throw new Error(`Missing required columns: ${missing.join(', ')}`)
       }
 
+      const productsList: any[] = []
       for (let i = 2; i <= rows; i++) {
         const row = worksheet.getRow(i)
         const name = row.getCell(headers['product name']).value?.toString()
-        if (!name) continue // Skip empty rows
+        if (!name) continue
 
         const product = {
           name: name,
@@ -134,29 +136,62 @@ export function BulkInventoryUploadModal({
           is_active: true,
           variants: []
         }
-
-        // Validate individual product with Zod
-        const validation = productSchema.safeParse(product)
-        if (!validation.success) {
-          console.warn(`Row ${i} validation failed:`, validation.error.message)
-          // For now, we'll continue and let Supabase handle constraints if we miss something
-        }
         
-        products.push(product)
-        setProgress(Math.round((i / rows) * 30)) // First 30% for parsing
+        productsList.push(product)
       }
 
-      if (products.length === 0) throw new Error('No valid products found in Excel file')
+      // Group products by barcode/sku to handle duplicates in the Excel itself
+      const groupedProducts: Record<string, any> = {}
+      for (const p of productsList) {
+        const key = p.barcode || p.sku || p.name
+        if (groupedProducts[key]) {
+          groupedProducts[key].quantity += p.quantity
+        } else {
+          groupedProducts[key] = { ...p }
+        }
+      }
 
-      // Batch upload to Supabase
-      // Split into chunks of 50 to avoid request size limits
+      const uniqueProducts = Object.values(groupedProducts)
+      setProgress(30)
+
+      if (uniqueProducts.length === 0) throw new Error('No valid products found in Excel file')
+
+      // Fetch existing products to handle restocking
+      const barcodes = uniqueProducts.filter(p => p.barcode).map(p => p.barcode)
+      const skus = uniqueProducts.filter(p => p.sku).map(p => p.sku)
+      
+      const { data: existingProducts } = await supabase
+        .from('products')
+        .select('id, barcode, sku, quantity')
+        .or(`barcode.in.(${barcodes.join(',')}),sku.in.(${skus.join(',')})`)
+
+      const existingMap: Record<string, { id: string; quantity: number }> = {}
+      existingProducts?.forEach(p => {
+        if (p.barcode) existingMap[p.barcode] = { id: p.id, quantity: p.quantity }
+        if (p.sku) existingMap[p.sku] = { id: p.id, quantity: p.quantity }
+      })
+
+      // Update products with IDs and new quantities if they exist
+      const finalProducts = uniqueProducts.map(p => {
+        const existing = (p.barcode && existingMap[p.barcode]) || (p.sku && existingMap[p.sku])
+        if (existing) {
+          return {
+            ...p,
+            id: existing.id,
+            quantity: uploadMode === 'restock' ? existing.quantity + p.quantity : p.quantity
+          }
+        }
+        return p
+      })
+
+      // Batch upload to Supabase using upsert
       const chunkSize = 50
       let successCount = 0
       let failedCount = 0
 
-      for (let i = 0; i < products.length; i += chunkSize) {
-        const chunk = products.slice(i, i + chunkSize)
-        const { error: uploadError } = await supabase.from('products').insert(chunk)
+      for (let i = 0; i < finalProducts.length; i += chunkSize) {
+        const chunk = finalProducts.slice(i, i + chunkSize)
+        const { error: uploadError } = await supabase.from('products').upsert(chunk, { onConflict: 'id' as any })
         
         if (uploadError) {
           console.error('Upload Error:', uploadError)
@@ -165,19 +200,19 @@ export function BulkInventoryUploadModal({
           successCount += chunk.length
         }
         
-        const uploadProgress = 30 + Math.round(((i + chunk.length) / products.length) * 70)
+        const uploadProgress = 30 + Math.round(((i + chunk.length) / finalProducts.length) * 70)
         setProgress(uploadProgress)
       }
 
       setResults({ success: successCount, failed: failedCount })
       if (failedCount === 0) {
-        toast.success(`Successfully uploaded ${successCount} products!`)
+        toast.success(`Successfully processed ${successCount} products!`)
         onSuccess()
       } else if (successCount > 0) {
-        toast.error(`Uploaded ${successCount} products, but ${failedCount} failed. Check for duplicate barcodes/SKUs.`)
+        toast.error(`Processed ${successCount} products, but ${failedCount} failed.`)
         onSuccess()
       } else {
-        throw new Error('All products failed to upload. Check for duplicate barcodes or SKU constraints.')
+        throw new Error('All products failed to upload.')
       }
 
     } catch (err: any) {
@@ -207,16 +242,18 @@ export function BulkInventoryUploadModal({
               onClick={downloadTemplate}
             >
               <Download className="h-6 w-6 text-muted-foreground" />
-              <span className="text-xs">Download Template</span>
+              <span className="text-xs font-bold uppercase tracking-wide">Download Template</span>
             </Button>
             
             <Button
               variant="outline"
-              className="flex flex-col h-24 gap-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 relative overflow-hidden"
+              className={`flex flex-col h-24 gap-2 border-dashed border-2 transition-all relative overflow-hidden ${
+                isUploading ? 'bg-muted' : 'blink-on-hover hover:border-primary hover:bg-primary/5'
+              }`}
               disabled={isUploading}
             >
-              <FileUp className="h-6 w-6 text-muted-foreground" />
-              <span className="text-xs">{isUploading ? 'Uploading...' : 'Select Excel File'}</span>
+              <FileUp className={`h-6 w-6 ${isUploading ? 'animate-bounce' : 'text-muted-foreground'}`} />
+              <span className="text-xs font-bold uppercase tracking-wide">{isUploading ? 'Uploading...' : 'Select Excel File'}</span>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -226,6 +263,39 @@ export function BulkInventoryUploadModal({
                 disabled={isUploading}
               />
             </Button>
+          </div>
+
+          <div className="p-4 rounded-xl border bg-card/60 space-y-4 shadow-sm">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+              <AlertCircle className="h-3 w-3" />
+              Stock Handling Mode
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setUploadMode('restock')}
+                className={`p-3 rounded-lg border text-left transition-all ${
+                  uploadMode === 'restock' 
+                    ? 'border-primary bg-primary/10 ring-1 ring-primary' 
+                    : 'border-border bg-muted/20 hover:bg-muted/50'
+                }`}
+              >
+                <p className="text-sm font-bold">Restock (Add)</p>
+                <p className="text-[10px] text-muted-foreground">Add Excel amount to your current inventory</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadMode('overwrite')}
+                className={`p-3 rounded-lg border text-left transition-all ${
+                  uploadMode === 'overwrite' 
+                    ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500' 
+                    : 'border-border bg-muted/20 hover:bg-muted/50'
+                }`}
+              >
+                <p className="text-sm font-bold">Overwrite (Set)</p>
+                <p className="text-[10px] text-muted-foreground italic">Set inventory exactly to what is in file</p>
+              </button>
+            </div>
           </div>
 
           {isUploading && (
@@ -274,8 +344,9 @@ export function BulkInventoryUploadModal({
             <ul className="list-disc pl-4 space-y-1">
               <li>Columns marked with * are mandatory.</li>
               <li>Price and Stock must be numeric values.</li>
-              <li>Barcode and SKU must be unique across all products.</li>
-              <li>Existing products will not be updated (only new ones added).</li>
+              <li>Barcode and SKU help identify existing products.</li>
+              <li>New products (unmatched barcode/sku) will be created automatically.</li>
+              <li>Existing products will be updated based on your "Mode" selection above.</li>
             </ul>
           </div>
         </div>
