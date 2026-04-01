@@ -8,6 +8,7 @@ export enum PaymentMethod {
   CASH = 'CASH',
   MOBILE_MONEY = 'MOBILE_MONEY',
   CARD = 'CARD',
+  PAYSTACK = 'PAYSTACK',
 }
 
 export enum StockStatus {

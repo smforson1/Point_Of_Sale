@@ -17,7 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/authStore'
 import { InstallPrompt } from './InstallPrompt'
@@ -107,6 +107,17 @@ export function Sidebar() {
   const pathname = usePathname()
   const { role } = useAuthStore()
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const hasSetInitialCollapse = useRef(false)
+
+  // Auto-collapse for cashiers on initial load
+  useEffect(() => {
+    if (role && !hasSetInitialCollapse.current) {
+      if (role === 'CASHIER') {
+        setIsCollapsed(true)
+      }
+      hasSetInitialCollapse.current = true
+    }
+  }, [role])
 
   const filteredNavItems = navItems.filter((item) =>
     role ? item.roles.includes(role) : false

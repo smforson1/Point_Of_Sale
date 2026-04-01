@@ -19,8 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Banknote, CreditCard, Smartphone, Check, Loader2, DollarSign } from 'lucide-react'
+import { Banknote, CreditCard, Smartphone, Check, Loader2, DollarSign, QrCode, ExternalLink } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { useEffect, useCallback } from 'react'
 import { ReceiptModal } from './ReceiptModal'
 import {
   Select,
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/select'
 
 interface PaymentEntry {
-  method: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'STORE_BALANCE'
+  method: 'CASH' | 'MOBILE_MONEY' | 'CARD' | 'STORE_BALANCE' | 'PAYSTACK'
   amount: number
   details: any
 }
@@ -54,8 +55,28 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
   const [lastSaleId, setLastSaleId] = useState<string | null>(null)
   
   const [payments, setPayments] = useState<PaymentEntry[]>([])
+  
+  // Paystack States
+  const [paystackUrl, setPaystackUrl] = useState<string | null>(null)
+  const [paystackRef, setPaystackRef] = useState<string | null>(null)
+  const [isPaystackInitializing, setIsPaystackInitializing] = useState(false)
+  const [isPaystackPaid, setIsPaystackPaid] = useState(false)
 
   const supabase = createClient()
+  
+  // Reset all states when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setAmountInput('')
+      setMomoRef('')
+      setCardRef('')
+      setPayments([])
+      setCurrentMethod('CASH')
+      setPaystackUrl(null)
+      setPaystackRef(null)
+      setIsPaystackPaid(false)
+    }
+  }, [isOpen])
   const { isOnline } = useConnectivity()
   const { subtotal, discountAmount, taxAmount, total } = calculateTotals()
   
@@ -66,7 +87,82 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
   const handleTabChange = (val: string) => {
     setCurrentMethod(val)
     setAmountInput(remainingBalance.toString())
+    
+    // Clear Paystack states when switching away
+    if (val !== 'PAYSTACK') {
+      setPaystackUrl(null)
+      setPaystackRef(null)
+      setIsPaystackPaid(false)
+    }
   }
+
+  const initPaystack = async () => {
+    if (remainingBalance <= 0) return
+    setIsPaystackInitializing(true)
+    try {
+      // Find customer email or use fallback
+      let customerEmail = 'customer@pos-system.com'
+      if (customerId) {
+        const { data: cust } = await supabase.from('customers').select('email').eq('id', customerId).single()
+        if (cust?.email) customerEmail = cust.email
+      }
+
+      const response = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: remainingBalance,
+          email: customerEmail,
+          metadata: {
+            customerId,
+            itemsCount: items.length,
+          }
+        })
+      })
+
+      const data = await response.json()
+      if (data.status) {
+        setPaystackUrl(data.data.authorization_url)
+        setPaystackRef(data.data.reference)
+        toast.success('Payment initialized. Scan QR code to pay.')
+      } else {
+        toast.error(data.message || 'Failed to initialize Paystack')
+      }
+    } catch (err) {
+      toast.error('Error connecting to Paystack')
+    } finally {
+      setIsPaystackInitializing(false)
+    }
+  }
+
+  // Polling for Paystack Payment
+  useEffect(() => {
+    let interval: any
+    if (paystackRef && !isPaystackPaid && currentMethod === 'PAYSTACK') {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/paystack/verify?reference=${paystackRef}`)
+          const data = await res.json()
+          if (data.status && data.data.status === 'success') {
+            setIsPaystackPaid(true)
+            clearInterval(interval)
+            toast.success('Payment Verified!')
+            
+            // Auto add to payments
+            const newPayment: PaymentEntry = {
+              method: 'PAYSTACK',
+              amount: remainingBalance,
+              details: { reference: paystackRef, channel: data.data.channel }
+            }
+            setPayments([...payments, newPayment])
+          }
+        } catch (err) {
+          console.error('Polling error:', err)
+        }
+      }, 3000)
+    }
+    return () => clearInterval(interval)
+  }, [paystackRef, isPaystackPaid, currentMethod, payments, remainingBalance])
 
   const addPayment = () => {
     const amount = parseFloat(amountInput)
@@ -315,6 +411,10 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
     setCardRef('')
     setPayments([])
     setShowReceipt(false)
+    setPaystackUrl(null)
+    setPaystackRef(null)
+    setIsPaystackPaid(false)
+    setCurrentMethod('CASH')
     clearCart()
     onClose()
   }
@@ -360,6 +460,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                   {p.method === 'MOBILE_MONEY' && <Smartphone className="h-3 w-3" />}
                   {p.method === 'CARD' && <CreditCard className="h-3 w-3" />}
                   {p.method === 'STORE_BALANCE' && <DollarSign className="h-3 w-3" />}
+                  {p.method === 'PAYSTACK' && <QrCode className="h-3 w-3" />}
                   <span className="text-sm font-medium">{p.method.replace('_', ' ')}</span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -380,6 +481,7 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                 <TabsTrigger value="CASH">Cash</TabsTrigger>
                 <TabsTrigger value="MOBILE_MONEY">MoMo</TabsTrigger>
                 <TabsTrigger value="CARD">Card</TabsTrigger>
+                <TabsTrigger value="PAYSTACK">Paystack</TabsTrigger>
                 {customerId && <TabsTrigger value="STORE_BALANCE">Balance</TabsTrigger>}
               </TabsList>
 
@@ -437,6 +539,66 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                    <div className="bg-yellow-50 p-2 rounded border border-yellow-200 text-[10px] text-yellow-800">
                      Using customer's prepaid balance. Ensure they have enough funds.
                    </div>
+                </TabsContent>
+
+                <TabsContent value="PAYSTACK" className="mt-0">
+                  <div className="flex flex-col items-center gap-4 py-2">
+                    {!paystackUrl ? (
+                      <div className="text-center space-y-4 w-full">
+                        <div className="p-8 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-muted/20">
+                          <QrCode className="h-12 w-12 mb-2 opacity-20" />
+                          <p className="text-sm">Click below to generate payment QR</p>
+                        </div>
+                        <Button 
+                          type="button" 
+                          className="w-full" 
+                          onClick={initPaystack}
+                          disabled={isPaystackInitializing || remainingBalance <= 0}
+                        >
+                          {isPaystackInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+                          Generate Paystack QR
+                        </Button>
+                      </div>
+                    ) : isPaystackPaid ? (
+                      <div className="flex flex-col items-center justify-center p-8 gap-4 w-full bg-green-50 rounded-xl border border-green-100">
+                        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg animate-bounce">
+                          <Check className="h-10 w-10 stroke-[4px]" />
+                        </div>
+                        <div className="text-center">
+                          <h3 className="text-lg font-bold text-green-700">Payment Received!</h3>
+                          <p className="text-xs text-green-600">You can now complete the sale.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-4 w-full">
+                        <div className="bg-white p-4 rounded-xl shadow-inner border">
+                          {/* Using a public QR generator API to avoid adding a heavy library */}
+                          <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(paystackUrl)}`} 
+                            alt="Payment QR"
+                            className="w-[200px] h-[200px]"
+                          />
+                        </div>
+                        <div className="text-center animate-pulse flex items-center gap-2 text-primary">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-xs font-bold uppercase tracking-widest">Waiting for Payment...</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground px-4 text-center">
+                          Customer should scan the code above with their phone to pay. 
+                          This screen will close automatically once the payment is successful.
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-[10px] h-8"
+                          onClick={() => window.open(paystackUrl, '_blank')}
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Open Checkout Page instead
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
 
                 {currentMethod === 'CASH' && change > 0 && (
