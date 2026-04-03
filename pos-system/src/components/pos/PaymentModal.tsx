@@ -61,6 +61,9 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
   const [paystackRef, setPaystackRef] = useState<string | null>(null)
   const [isPaystackInitializing, setIsPaystackInitializing] = useState(false)
   const [isPaystackPaid, setIsPaystackPaid] = useState(false)
+  const [paystackPhone, setPaystackPhone] = useState('')
+  const [paystackProvider, setPaystackProvider] = useState('mtn')
+  const [paystackVoucher, setPaystackVoucher] = useState('')
 
   const supabase = createClient()
   
@@ -75,8 +78,43 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
       setPaystackUrl(null)
       setPaystackRef(null)
       setIsPaystackPaid(false)
+      setPaystackPhone('')
+      setPaystackProvider('mtn')
+      setPaystackVoucher('')
     }
   }, [isOpen])
+
+  // Pre-fill customer phone if available
+  useEffect(() => {
+    if (isOpen && customerId) {
+      const fetchCustomerPhone = async () => {
+        const { data } = await supabase.from('customers').select('phone').eq('id', customerId).single()
+        if (data?.phone) setPaystackPhone(data.phone)
+      }
+      fetchCustomerPhone()
+    }
+  }, [isOpen, customerId, supabase])
+
+  // Auto-detect mobile provider based on Ghana prefixes
+  useEffect(() => {
+    if (!paystackPhone) return
+    
+    let cleaned = paystackPhone.replace(/\s+/g, '')
+    // Normalize +233 or 233 to 0 for prefix checking
+    if (cleaned.startsWith('+233')) cleaned = '0' + cleaned.substring(4)
+    else if (cleaned.startsWith('233')) cleaned = '0' + cleaned.substring(3)
+    
+    if (cleaned.length >= 3) {
+      const prefix = cleaned.substring(0, 3)
+      const mtnPrefixes = ['024', '054', '055', '059', '025', '053']
+      const telecelPrefixes = ['020', '050']
+      const tigoPrefixes = ['026', '027', '056', '057', '023']
+
+      if (mtnPrefixes.includes(prefix)) setPaystackProvider('mtn')
+      else if (telecelPrefixes.includes(prefix)) setPaystackProvider('telecel')
+      else if (tigoPrefixes.includes(prefix)) setPaystackProvider('tigo')
+    }
+  }, [paystackPhone])
   const { isOnline } = useConnectivity()
   const { subtotal, discountAmount, taxAmount, total } = calculateTotals()
   
@@ -98,6 +136,14 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
 
   const initPaystack = async () => {
     if (remainingBalance <= 0) return
+    if (!paystackPhone) {
+      toast.error('Please enter customer phone number')
+      return
+    }
+    if (paystackProvider === 'Telecel' && !paystackVoucher) {
+      toast.error('Please enter Telecel Voucher Code (Dial *110#)')
+      return
+    }
     setIsPaystackInitializing(true)
     try {
       // Find customer email or use fallback
@@ -107,12 +153,14 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
         if (cust?.email) customerEmail = cust.email
       }
 
-      const response = await fetch('/api/paystack/initialize', {
+      const response = await fetch('/api/paystack/charge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: remainingBalance,
           email: customerEmail,
+          phone: paystackPhone,
+          provider: paystackProvider.toLowerCase(), // frontend now sends raw 'mtn', 'telecel', or 'tigo'
           metadata: {
             customerId,
             itemsCount: items.length,
@@ -122,11 +170,27 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
 
       const data = await response.json()
       if (data.status) {
-        setPaystackUrl(data.data.authorization_url)
-        setPaystackRef(data.data.reference)
-        toast.success('Payment initialized. Scan QR code to pay.')
+        const ref = data.data.reference
+
+        // If Telecel/Vodafone and we have a voucher, submit it immediately
+        if (paystackProvider.toLowerCase() === 'telecel' && paystackVoucher) {
+          const otpResponse = await fetch('/api/paystack/submit-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reference: ref, otp: paystackVoucher })
+          })
+          const otpData = await otpResponse.json()
+          if (!otpData.status) {
+             toast.error(otpData.message || 'Voucher submission failed')
+             setIsPaystackInitializing(false)
+             return
+          }
+        }
+
+        setPaystackRef(ref)
+        toast.success(paystackProvider === 'Telecel' ? 'Voucher submitted! Verifying...' : 'Payment request sent!')
       } else {
-        toast.error(data.message || 'Failed to initialize Paystack')
+        toast.error(data.message || 'Failed to initiate Paystack')
       }
     } catch (err) {
       toast.error('Error connecting to Paystack')
@@ -414,6 +478,9 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
     setPaystackUrl(null)
     setPaystackRef(null)
     setIsPaystackPaid(false)
+    setPaystackPhone('')
+    setPaystackProvider('mtn')
+    setPaystackVoucher('')
     setCurrentMethod('CASH')
     clearCart()
     onClose()
@@ -543,21 +610,57 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
 
                 <TabsContent value="PAYSTACK" className="mt-0">
                   <div className="flex flex-col items-center gap-4 py-2">
-                    {!paystackUrl ? (
-                      <div className="text-center space-y-4 w-full">
-                        <div className="p-8 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-muted/20">
-                          <QrCode className="h-12 w-12 mb-2 opacity-20" />
-                          <p className="text-sm">Click below to generate payment QR</p>
+                    {!paystackRef ? (
+                      <div className="space-y-4 w-full">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Customer Phone</Label>
+                            <Input
+                              className="h-9 text-sm"
+                              placeholder="024XXXXXXX"
+                              value={paystackPhone}
+                              onChange={(e) => setPaystackPhone(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Provider</Label>
+                            <Select value={paystackProvider} onValueChange={setPaystackProvider}>
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="mtn">MTN</SelectItem>
+                                <SelectItem value="telecel">Telecel (Vodafone)</SelectItem>
+                                <SelectItem value="tigo">AirtelTigo</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
+
+                        {paystackProvider.toLowerCase() === 'telecel' && (
+                          <div className="space-y-1 w-full animate-in slide-in-from-top-2 duration-300">
+                            <Label className="text-[10px] text-primary font-bold">Voucher Code (Dial *110# on customer phone)</Label>
+                            <Input
+                              className="h-9 text-sm border-primary/40 focus:border-primary shadow-sm"
+                              placeholder="Enter 6-digit code"
+                              value={paystackVoucher}
+                              onChange={(e) => setPaystackVoucher(e.target.value)}
+                            />
+                          </div>
+                        )}
+
                         <Button 
                           type="button" 
-                          className="w-full" 
+                          className="w-full bg-[#09A5DB] hover:bg-[#09A5DB]/90 text-white" 
                           onClick={initPaystack}
                           disabled={isPaystackInitializing || remainingBalance <= 0}
                         >
-                          {isPaystackInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
-                          Generate Paystack QR
+                          {isPaystackInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Smartphone className="mr-2 h-4 w-4" />}
+                          Send Payment Prompt
                         </Button>
+                        <p className="text-[10px] text-center text-muted-foreground">
+                          This will send a Push/USSD prompt to the customer's phone for authorization.
+                        </p>
                       </div>
                     ) : isPaystackPaid ? (
                       <div className="flex flex-col items-center justify-center p-8 gap-4 w-full bg-green-50 rounded-xl border border-green-100">
@@ -570,31 +673,27 @@ export function PaymentModal({ isOpen, onClose }: PaymentModalProps) {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center gap-4 w-full">
-                        <div className="bg-white p-4 rounded-xl shadow-inner border">
-                          {/* Using a public QR generator API to avoid adding a heavy library */}
-                          <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(paystackUrl)}`} 
-                            alt="Payment QR"
-                            className="w-[200px] h-[200px]"
-                          />
+                      <div className="flex flex-col items-center gap-6 w-full py-4">
+                        <div className="relative">
+                          <div className="w-24 h-24 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Smartphone className="h-10 w-10 text-primary animate-pulse" />
+                          </div>
                         </div>
-                        <div className="text-center animate-pulse flex items-center gap-2 text-primary">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-xs font-bold uppercase tracking-widest">Waiting for Payment...</span>
+                        <div className="text-center space-y-2">
+                          <h4 className="font-bold text-primary animate-pulse uppercase tracking-widest">Waiting for Customer...</h4>
+                          <p className="text-xs text-muted-foreground px-6">
+                            A payment prompt has been sent to <span className="font-bold">{paystackPhone}</span>. 
+                            Ask the customer to enter their PIN to authorize the transaction.
+                          </p>
                         </div>
-                        <p className="text-[10px] text-muted-foreground px-4 text-center">
-                          Customer should scan the code above with their phone to pay. 
-                          This screen will close automatically once the payment is successful.
-                        </p>
                         <Button 
-                          variant="outline" 
+                          variant="ghost" 
                           size="sm" 
-                          className="text-[10px] h-8"
-                          onClick={() => window.open(paystackUrl, '_blank')}
+                          className="text-[10px] text-destructive hover:bg-destructive/10"
+                          onClick={() => { setPaystackRef(null); setPaystackUrl(null); }}
                         >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Open Checkout Page instead
+                          Cancel and try another number
                         </Button>
                       </div>
                     )}
